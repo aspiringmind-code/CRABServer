@@ -259,7 +259,42 @@ class MasterWorker(object):
             return
         return getattr(mod, actionName)(self.config.TaskWorker.logsDir)
 
+    
+    def _externalScheduling(self):
+        """
+        Trivial external scheduling method. To be expanded with actual scheduling logic.
+        """
+        self.logger.info("External scheduling method called.")
 
+    
+    def _selectWork(self, limit):
+        """Presently this always returns true, because we do not want the worker to die if
+           the server endpoint is not available.
+           Prints a log entry if answer is greater than 400:
+            * the server call succeeded or
+            * the server could not find anything to update or
+            * the server has an internal error"""
+
+        configreq = {'subresource': 'process', 'workername': self.config.TaskWorker.name, 'getstatus': 'WAITING', 'limit': limit, 'status': 'NEW'}
+
+        # Call the external scheduling method
+        self._externalScheduling()
+        
+        try:
+            #self.server.post(self.restURInoAPI + '/workflowdb', data=urlencode(configreq))
+            self.crabserver.post(api='workflowdb', data=urlencode(configreq))
+        except HTTPException as hte:
+            msg = "HTTP Error during _lockWork: %s\n" % str(hte)
+            msg += "HTTP Headers are %s: " % hte.headers
+            self.logger.error(msg)
+            return False
+        except Exception: #pylint: disable=broad-except
+            self.logger.exception("Server could not process the _lockWork request (prameters are %s)", configreq)
+            return False
+
+        return True
+
+    
     def _lockWork(self, limit, getstatus, setstatus):
         """Today this is always returning true, because we do not want the worker to die if
            the server endpoint is not avaialable.
