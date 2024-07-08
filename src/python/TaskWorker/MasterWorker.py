@@ -450,6 +450,8 @@ class MasterWorker(object):
         self.restartQueuedTasks()
         self.logger.debug("Master Worker Starting Main Cycle.")
         while not self.STOP:
+            selection_limit = 10 #TBD what should be the value
+            self._selectWork(limit=selection_limit)
             limit = self.slaves.queueableTasks()
             if not self._lockWork(limit=limit, getstatus='NEW', setstatus='HOLDING'):
                 time.sleep(self.config.TaskWorker.polling)
