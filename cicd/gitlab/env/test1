@@ -1,0 +1,3 @@
+KUBECONTEXT=cmsweb-test1
+Environment=crab-dev-tw05
+REST_Instance=test1
