@@ -252,7 +252,7 @@ class MasterWorker(object):
         """
         Trivial external scheduling method. To be expanded with actual scheduling logic.
         """
-        self.logger.info("External scheduling method called.")
+        self.logger.warning("External scheduling method called.")
 
     
     def _selectWork(self, limit):
