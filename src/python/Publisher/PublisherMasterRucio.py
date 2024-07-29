@@ -1,4 +1,4 @@
-# pylint: disable=invalid-name  # have a lot of snake_case varaibles here from "old times"
+# pylint: disable=invalid-name  # have a lot of snake_case variables here from "old times"
 
 """
 Here's the algorithm
@@ -23,21 +23,21 @@ from ServerUtilities import encodeRequest, oracleOutputMapping, executeCommand
 from TaskWorker.WorkerUtilities import getCrabserver
 from RucioUtils import getNativeRucioClient
 
-from PublisherUtils import createLogdir, setRootLogger, setSlaveLogger, logVersionAndConfig
-from PublisherUtils import getInfoFromFMD, markFailed
+from Publisher.PublisherUtils import createLogdir, setRootLogger, setSlaveLogger, logVersionAndConfig
+from Publisher.PublisherUtils import getInfoFromFMD, markFailed
 
 
 class Master():  # pylint: disable=too-many-instance-attributes
     """I am the main daemon kicking off all Publisher work via slave Publishers"""
 
-    def __init__(self, confFile=None, quiet=False, debug=True, testMode=False):
+    def __init__(self, confFile=None, sequential=False, logDebug=False, console=False):
         """
         Initialise class members
 
         :arg WMCore.Configuration config: input Publisher configuration
         :arg bool quiet: it tells if a quiet logger is needed
         :arg bool debug: it tells if needs a verbose logger
-        :arg bool testMode: it tells if to run in test (no subprocesses) mode.
+        :arg bool sequential: it tells if to run in test (no subprocesses) mode.
         """
 
         self.configurationFile = confFile         # remember this, will have to pass it to TaskPublish
@@ -53,7 +53,7 @@ class Master():  # pylint: disable=too-many-instance-attributes
         self.lfn_map = {}
         self.force_publication = False
         self.force_failure = False
-        self.TestMode = testMode
+        self.sequential = sequential
         self.taskFilesDir = self.config.taskFilesDir
         createLogdir(self.taskFilesDir)
         createLogdir(os.path.join(self.taskFilesDir, 'FailedBlocks'))
@@ -61,7 +61,8 @@ class Master():  # pylint: disable=too-many-instance-attributes
         self.blackListedTaskDir = os.path.join(self.taskFilesDir, 'BlackListedTasks')
         createLogdir(self.blackListedTaskDir)
 
-        self.logger = setRootLogger(self.config.logsDir, quiet=quiet, debug=debug, console=self.TestMode)
+        # if self.sequential is True, we want the log output to console
+        self.logger = setRootLogger(self.config.logsDir, logDebug=logDebug, console=console)
         logVersionAndConfig(config, self.logger)
 
         # CRAB REST API
@@ -230,7 +231,7 @@ class Master():  # pylint: disable=too-many-instance-attributes
                 if username in self.config.skipUsers:
                     self.logger.info("Skipped user %s task %s", username, taskname)
                     continue
-                if self.TestMode:
+                if self.sequential:
                     self.startSlave(task)  # sequentially do one task after another
                     continue
                 # deal with each task in a separate process
@@ -313,7 +314,7 @@ class Master():  # pylint: disable=too-many-instance-attributes
                     lfnsToPublish.append(fileDict['destination_lfn'])
             FilesInfoFromTBDInBlock[blockName] = filesInfo
 
-        logger.info(f"Prepare publish info for {len(blocksToPublish)} blocks")
+        logger.info("Prepare publish info for %s blocks", len(blocksToPublish))
 
         # so far so good
 
@@ -377,8 +378,7 @@ class Master():  # pylint: disable=too-many-instance-attributes
 
             if toFail:
                 logger.info('Did not find useful metadata for %d files. Mark as failed', len(toFail))
-                nMarked = self.markAsFailed(lfns=toFail, reason='FileMetadata not found')
-                logger.info('marked %d files as Failed', nMarked)
+                self.markAsFailed(lfns=toFail, reason='FileMetadata not found')
 
             # call taskPublishRucio
             self.runTaskPublish(workflow, logger)
@@ -392,9 +392,8 @@ class Master():  # pylint: disable=too-many-instance-attributes
         """
         handy wrapper for PublisherUtils/markFailed
         """
-        nMarked = markFailed(files=lfns, crabserver=self.crabserver, failureReason=reason,
+        markFailed(files=lfns, crabServer=self.crabserver, failureReason=reason,
                              asoworker=self.config.asoworker, logger=self.logger)
-        return nMarked
 
     def pollInterval(self):
         """

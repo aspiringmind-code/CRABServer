@@ -15,10 +15,10 @@ from WMCore.Configuration import loadConfigurationFile
 from TaskWorker.WorkerExceptions import CannotMigrateException
 from TaskWorker.WorkerUtilities import getCrabserver
 
-from PublisherUtils import setupLogging, prepareDummySummary, saveSummaryJson, \
+from Publisher.PublisherUtils import setupLogging, prepareDummySummary, saveSummaryJson, \
     markGood, markFailed, getDBSInputInformation
 
-from PublisherDbsUtils import format_file_3, setupDbsAPIs, findParentBlocks, \
+from Publisher.PublisherDbsUtils import format_file_3, setupDbsAPIs, findParentBlocks, \
     prepareDbsPublishingConfigs, createBulkBlock, migrateByBlockDBS3
 
 
@@ -30,7 +30,8 @@ def publishInDBS3(config, taskname, verbose, console):  # pylint: disable=too-ma
     """
     # a few dictionaries to pass global information around all these functions
     # initialized here to None simply as documentation
-    log = {'logger': None, 'logdir': None, 'logTaskDir': None, 'taskFilesDir': None}
+    log = {'logger': None, 'logdir': None, 'logTaskDir': None,
+           'taskFilesDir': None, 'migrationLogDir': None}
     DBSApis = {'source': None, 'destRead': None, 'destWrite': None, 'global': None, 'migrate': None}
     nothingToDo = {}  # a pre-filled SummaryFile in case of no useful input or errors
 
@@ -115,7 +116,8 @@ def publishInDBS3(config, taskname, verbose, console):  # pylint: disable=too-ma
                     statusCode, failureMsg = migrateByBlockDBS3(
                         taskname,
                         DBSApis['migrate'], DBSApis['destRead'], DBSApis['global'],
-                        globalParentBlocks, logger=logger, verbose=verbose)
+                        globalParentBlocks,
+                        log['migrationLogDir'], logger=logger, verbose=verbose)
                 except Exception as ex:
                     logger.exception('Exception raised inside migrateByBlockDBS3\n%s', ex)
                     statusCode = 1

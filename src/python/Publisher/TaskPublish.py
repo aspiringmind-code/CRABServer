@@ -16,10 +16,10 @@ from WMCore.Configuration import loadConfigurationFile
 from TaskWorker.WorkerExceptions import CannotMigrateException
 from TaskWorker.WorkerUtilities import getCrabserver
 
-from PublisherUtils import setupLogging, prepareDummySummary, saveSummaryJson, \
+from Publisher.PublisherUtils import setupLogging, prepareDummySummary, saveSummaryJson, \
     markGood, markFailed, getDBSInputInformation
 
-from PublisherDbsUtils import format_file_3, setupDbsAPIs, findParentBlocks, \
+from Publisher.PublisherDbsUtils import format_file_3, setupDbsAPIs, findParentBlocks, \
     createBulkBlock, migrateByBlockDBS3, prepareDbsPublishingConfigs
 
 
@@ -29,7 +29,8 @@ def publishInDBS3(config, taskname, verbose, console):
     """
     # a few dictionaries to pass global information around all these functions
     # initialized here to None simply as documentation
-    log = {'logger': None, 'logdir': None, 'logTaskDir': None, 'taskFilesDir': None}
+    log = {'logger': None, 'logdir': None, 'logTaskDir': None,
+           'taskFilesDir': None, 'migrationLogDir': None}
     DBSApis = {'source': None, 'destRead': None, 'destWrite': None, 'global': None, 'migrate': None}
     nothingToDo = {}  # a pre-filled SummaryFile in case of no useful input or errors
 
