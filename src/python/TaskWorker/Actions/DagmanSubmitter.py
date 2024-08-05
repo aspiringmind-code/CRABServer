@@ -22,7 +22,7 @@ from ServerUtilities import MAX_MEMORY_PER_CORE, MAX_MEMORY_SINGLE_CORE
 
 from TaskWorker.DataObjects import Result
 from TaskWorker.Actions import TaskAction
-from TaskWorker.WorkerExceptions import TaskWorkerException
+from TaskWorker.WorkerExceptions import TaskWorkerException, SubmissionRefusedException
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlencode  # pylint: disable=no-name-in-module
@@ -184,7 +184,7 @@ def checkMemoryWalltime(info, task, cmd, logger, warningUploader):
         msg = f"Task requests {memory} MB of memory, above the allowed maximum of {absmaxmemory}"
         msg += f" for a {ncores} core(s) job.\n"
         logger.error(msg)
-        raise TaskWorkerException(msg)
+        raise SubmissionRefusedException(msg)
     if memory is not None and memory > MAX_MEMORY_PER_CORE:
         if ncores is not None and ncores < 2:
             msg = f"Task requests {memory} MB of memory, but only {MAX_MEMORY_PER_CORE} are guaranteed to be available."
@@ -523,8 +523,14 @@ class DagmanSubmitter(TaskAction.TaskAction):
         for k,v in jobJDL.items():     # so we have to create a new object and
             subdagJDL[k] = v           # fill it one element at a time
         subdagJDL['X509UserProxy'] = os.path.basename(jobJDL['X509UserProxy'])  # proxy in scheduler will be in cwd
+
+        # make sure that there is no "queue" statement in subdagJDL "jdl fragment" (introduced in v2 HTC bindings)
+        # since condor_submit_dag will add one anyhow
+        subdag = str(subdagJDL)  # print subdagJDL into a string
+        subdag = subdag.rstrip('queue\n')  # strip "queue" from last line
+        # save to the file
         with open('subdag.jdl', 'w', encoding='utf-8') as fd:
-            print(subdagJDL, file=fd)
+            print(subdag, file=fd)
 
         jobJDL["+TaskType"] = classad.quote("ROOT")  # we want the ad value to be "ROOT", not ROOT
         jobJDL["output"] = os.path.join(info['scratch'], "request.out")
