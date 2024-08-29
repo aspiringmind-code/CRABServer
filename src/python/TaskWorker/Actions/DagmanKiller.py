@@ -1,9 +1,8 @@
 """ need a doc string here """
+import os
 import re
-import sys
 from http.client import HTTPException
-import htcondor
-import classad
+from urllib.parse import urlencode
 
 import HTCondorLocator
 from ServerUtilities import FEEDBACKMAIL
@@ -11,11 +10,12 @@ from TaskWorker.DataObjects import Result
 from TaskWorker.Actions.TaskAction import TaskAction
 from TaskWorker.WorkerExceptions import TaskWorkerException
 
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlencode  # pylint: disable=no-name-in-module
-if sys.version_info < (3, 0):
-    from urllib import urlencode
-
+if 'useHtcV2' in os.environ:
+    import htcondor2 as htcondor
+    import classad2 as classad
+else:
+    import htcondor
+    import classad
 
 WORKFLOW_RE = re.compile("[a-z0-9_]+")
 
@@ -59,8 +59,9 @@ class DagmanKiller(TaskAction):
             msg += f" Message from the scheduler: {exp}"
             self.logger.exception("%s: %s", self.workflow, msg)
             raise TaskWorkerException(msg) from exp
-
-        const = f'CRAB_ReqName =?= {classad.quote(self.workflow)} && TaskType=?="Job"'
+        taskName = classad.quote(self.workflow)
+        const = f'(CRAB_ReqName =?= {taskName} && CRAB_DAGType=?="Job")'
+        const += f' || (CRAB_ReqName =?= {taskName} && TaskType=?="Job")'
 
         # Note that we can not send kills for jobs not in queue at this time; we'll need the
         # DAG FINAL node to be fixed and the node status to include retry number.
@@ -70,9 +71,11 @@ class DagmanKiller(TaskAction):
 
         """ submit the proper commands to condor """
 
-        # We need to keep ROOT, PROCESSING, and TAIL DAGs in hold until periodic remove kicks in.
+        # We need to keep BASE, PROCESSING, and TAIL DAGs in hold until periodic remove kicks in.
         # This is needed in case user wants to resubmit.
-        rootConst = f'stringListMember(TaskType, "ROOT PROCESSING TAIL", " ") && CRAB_ReqName =?= {classad.quote(self.workflow)}'
+        taskName = classad.quote(self.workflow)
+        rootConst = f'(stringListMember(CRAB_DAGType, "BASE PROCESSING TAIL", " ") && CRAB_ReqName =?= {taskName})'
+        rootConst += f' || (stringListMember(CRAB_DAGType, "BASE PROCESSING TAIL", " ") && CRAB_ReqName =?= {taskName})'
 
         # Holding DAG job does not mean that it will remove all jobs
         # and this must be done separately
@@ -89,7 +92,7 @@ class DagmanKiller(TaskAction):
         try:
             self.schedd.act(htcondor.JobAction.Hold, rootConst)
             self.schedd.act(htcondor.JobAction.Remove, jobConst)
-        except  htcondor.HTCondorException as hte:
+        except  Exception as hte:
             msg = "The CRAB server backend was not able to kill the task,"
             msg += " because the Grid scheduler answered with an error."
             msg += " This is probably a temporary glitch. Please try again later."

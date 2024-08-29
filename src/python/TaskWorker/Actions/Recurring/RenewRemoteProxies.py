@@ -138,7 +138,7 @@ class CRAB3ProxyRenewer():
             raise NotImplementedError()
         try:
             schedd.refreshGSIProxy(ad['ClusterId'], ad['ProcID'], proxy, -1)
-        except htcondor.HTCondorException as e:
+        except Exception as e:
             raise Exception(f"Failure when renewing HTCondor task proxy: {e}") from e
 
     def execute_schedd(self, schedd_name, collector):
@@ -150,7 +150,8 @@ class CRAB3ProxyRenewer():
         self.logger.debug("Schedd found at %s", schedd_ad['MyAddress'])
         schedd = htcondor.Schedd(schedd_ad)
         self.logger.debug("Querying schedd for CRAB3 tasks.")
-        task_ads = list(schedd.xquery('TaskType =?= "ROOT" && CRAB_HC =!= "True"', QUERY_ATTRS))
+        task_ads = schedd.query('CRAB_DAGType =?= "BASE" && CRAB_HC =!= "True"', QUERY_ATTRS)
+        task_ads += schedd.query('TaskType =?= "ROOT" && CRAB_HC =!= "True"', QUERY_ATTRS)
         self.logger.info("There were %d tasks found.", len(task_ads))
         ads = {}
         now = time.time()

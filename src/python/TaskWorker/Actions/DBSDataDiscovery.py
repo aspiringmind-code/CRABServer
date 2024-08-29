@@ -197,16 +197,18 @@ class DBSDataDiscovery(DataDiscovery):
         isUserDataset = isDatasetUserDataset(inputDataset, self.dbsInstance)
 
         self.checkDatasetStatus(inputDataset, kwargs)
+        self.logger.info("Input Dataset: %s", inputDataset)
         if secondaryDataset:
             self.checkDatasetStatus(secondaryDataset, kwargs)
+            self.logger.info("Secondary Dataset: %s", secondaryDataset)
 
         try:
             # Get the list of blocks for the locations.
             blocks = self.dbs.listFileBlocks(inputDataset)
-            self.logger.debug("Datablock from DBS: %s ", blocks)
+            #self.logger.debug("Datablock from DBS: %s ", blocks)
             if inputBlocks:
                 blocks = [x for x in blocks if x in inputBlocks]
-                self.logger.debug("Matched inputBlocks: %s ", blocks)
+                #self.logger.debug("Matched inputBlocks: %s ", blocks)
             secondaryBlocks = []
             if secondaryDataset:
                 secondaryBlocks = self.dbs.listFileBlocks(secondaryDataset)
@@ -438,9 +440,13 @@ class DBSDataDiscovery(DataDiscovery):
                                    tempDir=kwargs['tempDir'])
 
         if not result.result:
-            raise SubmissionRefusedException(("Cannot find any valid file inside the dataset. Please, check your dataset in DAS, %s.\n" +
-                                       "Aborting submission. Resubmitting your task will not help.") %
-                                      (f"https://cmsweb.cern.ch/das/request?instance={self.dbsInstance}&input=dataset={inputDataset}"))
+            msg = "All dataset files are either invalid or w/o location"
+            if kwargs['task']['tm_use_parent']:
+                msg += " or w/o a parent.\n"
+            dasUrl = f"https://cmsweb.cern.ch/das/request?instance={self.dbsInstance}&input=dataset={inputDataset}"
+            msg += f"Please, check your dataset in DAS, {dasUrl}\n"
+            msg += "Aborting submission. Resubmitting your task will not help."
+            raise SubmissionRefusedException(msg)
 
         self.logger.debug("Got %s files", len(result.result.getFiles()))
 

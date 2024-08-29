@@ -1,10 +1,9 @@
 """ Resubmit failed jobs in tasks """
 
-from http.client import HTTPException
-import sys
+import os
 
-import classad
-import htcondor
+from http.client import HTTPException
+from urllib.parse import urlencode
 
 import HTCondorLocator
 
@@ -14,10 +13,12 @@ from TaskWorker.Actions.DagmanSubmitter import checkMemoryWalltime
 from TaskWorker.WorkerExceptions import TaskWorkerException
 from TaskWorker.DataObjects import  Result
 
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlencode  # pylint: disable=no-name-in-module
-if sys.version_info < (3, 0):
-    from urllib import urlencode
+if 'useHtcV2' in os.environ:
+    import htcondor2 as htcondor
+    import classad2 as classad
+else:
+    import htcondor
+    import classad
 
 
 class DagmanResubmitter(TaskAction):
@@ -69,7 +70,8 @@ class DagmanResubmitter(TaskAction):
         #
         # Processing and tail DAGs will be restarted by these scrips on the
         # schedd after the modifications are made.
-        rootConst = f"TaskType =?= \"ROOT\" && CRAB_ReqName =?= {classad.quote(workflow)}"
+        rootConst = f"(CRAB_DAGType =?= \"BASE\" && CRAB_ReqName =?= {classad.quote(workflow)})"
+        rootConst += f" || (TaskType =?= \"ROOT\" && CRAB_ReqName =?= {classad.quote(workflow)})"
 
         ## Calculate new parameters for resubmitted jobs. These parameters will
         ## be (re)written in the _CONDOR_JOB_AD when we do schedd.edit() below.
@@ -99,13 +101,15 @@ class DagmanResubmitter(TaskAction):
                 # files are in the directory resubmit_info in the schedd).
                 for adparam, taskparam in params.items():
                     if taskparam in ad:
-                        schedd.edit(rootConst, adparam, ad.lookup(taskparam))
+                        # repr() in the line below is a workaround for V2 bindings bug
+                        # https://github.com/dmwm/CRABServer/issues/8604#issuecomment-2284346056
+                        schedd.edit(rootConst, adparam, repr(ad.lookup(taskparam)))
                     elif task['resubmit_' + taskparam] is not None:
                         schedd.edit(rootConst, adparam, str(task['resubmit_' + taskparam]))
                 schedd.act(htcondor.JobAction.Hold, rootConst)
                 schedd.edit(rootConst, "HoldKillSig", 'SIGUSR1')
                 schedd.act(htcondor.JobAction.Release, rootConst)
-            except htcondor.HTCondorException as hte:
+            except Exception as hte:
                 msg = "The CRAB server backend was not able to resubmit the task,"
                 msg += " because the Grid scheduler answered with an error."
                 msg += " This is probably a temporary glitch. Please try again later."
@@ -141,7 +145,6 @@ class DagmanResubmitter(TaskAction):
         return Result.Result(task=kwargs['task'], result='OK')
 
 if __name__ == "__main__":
-    import os
     import logging
     from RESTInteractions import CRABRest
     from WMCore.Configuration import Configuration

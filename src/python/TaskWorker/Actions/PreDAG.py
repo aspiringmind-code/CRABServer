@@ -34,8 +34,6 @@ import functools
 import subprocess
 from ast import literal_eval
 
-import classad
-
 from WMCore.DataStructs.LumiList import LumiList
 
 from ServerUtilities import getLock, newX509env, MAX_IDLE_JOBS, MAX_POST_JOBS
@@ -46,6 +44,11 @@ from TaskWorker.Actions.DagmanCreator import DagmanCreator
 from TaskWorker.Actions.Recurring.BanDestinationSites import CRAB3BanDestinationSites
 from TaskWorker.WorkerExceptions import TaskWorkerException
 from TaskWorker.Worker import failTask
+
+if 'useHtcV2' in os.environ:
+    import classad2 as classad
+else:
+    import classad
 
 
 class PreDAG():
@@ -335,7 +338,7 @@ class PreDAG():
         subprocess.check_call(['condor_submit_dag', '-DoRecov', '-AutoRescue', '0', '-MaxPre', '20', '-MaxIdle', str(maxidle),
                                '-MaxPost', str(maxpost), '-insert_sub_file', 'subdag.jdl',
                                '-append', '+Environment = strcat(Environment," _CONDOR_DAGMAN_LOG={0}/{1}.dagman.out")'.format(os.getcwd(), subdag),
-                               '-append', '+TaskType = "{0}"'.format(stage.upper()), subdag])
+                               '-append', '+CRAB_DAGType = "{0}"'.format(stage.upper()), subdag])
 
     def adjustLumisForCompletion(self, task, unprocessed):
         """Sets the run, lumi information in the task information for the
