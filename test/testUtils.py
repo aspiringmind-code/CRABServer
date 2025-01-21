@@ -10,7 +10,7 @@ commonBashFunctions = """#!/bin/bash
 
 function remakeTest {
   local taskName="$1"
-  output=$(crab remake --task "$taskName" --instance=REST_Instance --proxy=$PROXY 2>&1 | tee remakeLog.txt)
+  output=$(crab remake --task "$taskName" --instance=REST_Instance --proxy=$PROXY)
   # Exit if command fails or does not contain "SUCCESS"
   [[ $? -ne 0 || ! "$output" =~ "SUCCESS" ]] && exit 1
   # Extract and echo the 'workDir'
