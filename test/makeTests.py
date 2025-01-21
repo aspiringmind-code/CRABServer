@@ -67,8 +67,9 @@ changeDict = {'param': name, 'value': 'False', 'section': 'General'}  # default 
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: CRAB_TransferOutputs = 0" "${workDir}/results/job_out.1.*.txt"
 """
@@ -82,8 +83,9 @@ changeDict = {'param': name, 'value': 'True', 'section': 'General'}  # default i
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: CRAB_SaveLogsFlag = 1" "${workDir}/results/job_out.1.*.txt"
 """
@@ -97,8 +99,9 @@ changeDict = {'param': name, 'value': '"hctestnew"', 'section': 'General'}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "JOB AD: CMS_Type = \\"Test\\"" "${workDir}/results/job_out.1.*.txt"
 lookFor "JOB AD: CMS_TaskType = \\"hctestnew\\"" "${workDir}/results/job_out.1.*.txt"
 """
@@ -133,8 +136,9 @@ changeDict = {'param': name, 'value': 'True', 'section': 'JobType'}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "^Output files.*: \$" "${workDir}/results/job_out.1.*.txt"
 """
@@ -154,8 +158,9 @@ changeDict = {'param': 'outputFiles', 'value': '["output.root", "My_output.txt"]
 confChangesList.append(changeDict)
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getoutput "--jobids=1 --proxy=$PROXY"
+crabCommand getoutput "--jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Success in retrieving output_1.root " commandLog.txt
 lookFor "Success in retrieving My_output_1.txt " commandLog.txt
 """
@@ -184,8 +189,9 @@ changeDict = {'param': name, 'value': '2500', 'section': 'JobType'} # default is
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: RequestMemory = 2500" "${workDir}/results/job_out.1.*.txt"
 """
@@ -199,8 +205,9 @@ changeDict = {'param': name, 'value': '100', 'section': 'JobType'}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: MaxWallTimeMins_RAW = 100" "${workDir}/results/job_out.1.*.txt"
 """
@@ -219,8 +226,9 @@ changeDict = {'param': 'maxMemoryMB', 'value': '4000', 'section': 'JobType'}
 confChangesList.append(changeDict)
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: RequestCpus = 8" "${workDir}/results/job_out.1.*.txt"
 """
@@ -236,8 +244,9 @@ testSubmitScript = """
 lookInTarFor "^SIMPLE-SCRIPT.sh" ${workDir}/inputs/*default.tgz
 """
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "SB CMSRUN starting" "${workDir}/results/job_out.1.*.txt"
 lookFor "====== arg checking: \$1 = 1" "${workDir}/results/job_out.1.*.txt"
@@ -257,8 +266,9 @@ testSubmitScript = """
 lookInTarFor "^SIMPLE-SCRIPT.sh" ${workDir}/inputs/*default.tgz
 """
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "SB CMSRUN starting" "${workDir}/results/job_out.1.*.txt"
 lookFor "====== arg checking: \$1 = 1" "${workDir}/results/job_out.1.*.txt"
@@ -327,8 +337,9 @@ confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 # make sure that parents were really read by cmsRun
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPFAIL
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "request to open.*GenericTTbar/GEN-SIM-RAW" "${workDir}/results/job_out.1.*.txt"
 """
@@ -346,8 +357,9 @@ confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 # make sure that the secondary dataset was really used in cmsRun
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPFAIL
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "request to open.*GenericTTbar/GEN-SIM-RAW" "${workDir}/results/job_out.1.*.txt"
 """
@@ -367,8 +379,9 @@ confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 # make sure that the lumimask was really applied
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "== JOB AD: CRAB_AlgoArgs.*\\"lumis\\": \\[\\"1,10" "${workDir}/results/job_out.1.*.txt"
 """
@@ -391,8 +404,9 @@ if not SL6:  # skip on SL6, can't fetch lumMask from URL inside singularity
     testSubmitScript = dummyTestScript
     # make sure that the lumimask was really applied
     validationScript = """
+    workDir=$(remakeTest ${taskName})
     checkStatus ${taskName} COMPLETED
-    crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+    crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
     lookFor "Retrieved job_out.1.*.txt" commandLog.txt
     lookFor "== JOB AD: CRAB_AlgoArgs.*\\"273158\\"" "${workDir}/results/job_out.1.*.txt"
     """
@@ -406,8 +420,9 @@ changeDict = {'param': name, 'value': "'/store/user/%s/OLFNtest/Adir'%getUsernam
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getoutput "--dump --jobids=1 --proxy=$PROXY"
+crabCommand getoutput "--dump --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "OLFNtest/Adir" commandLog.txt
 """
 if SL6:  # skip: singularity, no gfal_copy, crab getoutput can't work
@@ -428,8 +443,9 @@ confChangesList.append(changeDict)
 testSubmitScript = dummyTestScript
 # make sure that the run range was really applied
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "== JOB AD: CRAB_AlgoArgs.*\\"273150\\"" "${workDir}/results/job_out.1.*.txt"
 """
@@ -452,8 +468,9 @@ changeDict = {'param': 'whitelist', 'section': 'Site', 'value': "['T2_CH_CERN']"
 confChangesList.append(changeDict)
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand status "--long --proxy=$PROXY"
+crabCommand status "--long --proxy=$PROXY -d ${workDir}"
 lookFor "T2_CH_CERN" commandLog.txt
 """
 writeConfigFile(testName=name, listOfDicts=confChangesList)
@@ -494,8 +511,9 @@ changeDict = {'param': name, 'section': 'Site', 'value': "['T2_DE_DESY']"}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: DESIRED_SITES = \\"T2_DE_DESY\\"" "${workDir}/results/job_out.1.*.txt"
 """
@@ -517,8 +535,9 @@ changeDict = {'section':'Debug', 'param': 'extraJDL', 'value': "['+CMS_ALLOW_OVE
 confChangesList.append(changeDict)
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: JOB_CMSSite = \\"T1_US_FNAL\\"" "${workDir}/results/job_out.1.*.txt"
 """
@@ -552,8 +571,9 @@ changeDict = {'param': name, 'value': '"production"', 'section': 'User'}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: CRAB_UserRole = \\"production\\"" "${workDir}/results/job_out.1.*.txt"
 lookFor "attribute : /cms/Role=production/Capability=NULL" "${workDir}/results/job_out.1.*.txt"
@@ -568,8 +588,9 @@ changeDict = {'param': name, 'value': '"itcms"', 'section': 'User'}
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: CRAB_UserGroup = \\"itcms\\"" "${workDir}/results/job_out.1.*.txt"
 lookFor "attribute : /cms/itcms/Role=NULL/Capability=NULL" "${workDir}/results/job_out.1.*.txt"
@@ -617,8 +638,9 @@ changeDict = {'param': name, 'value': "['+CMS_ALLOW_OVERFLOW=False', '+CRAB_Stag
 confChangesList = [changeDict]
 testSubmitScript = dummyTestScript
 validationScript = """
+workDir=$(remakeTest ${taskName})
 checkStatus ${taskName} COMPLETED
-crabCommand getlog "--short --jobids=1 --proxy=$PROXY"
+crabCommand getlog "--short --jobids=1 --proxy=$PROXY -d ${workDir}"
 lookFor "Retrieved job_out.1.*.txt" commandLog.txt
 lookFor "JOB AD: CMS_ALLOW_OVERFLOW = false" "${workDir}/results/job_out.1.*.txt"
 lookFor "JOB AD: CRAB_StageoutPolicy = \\"remote\\"" "${workDir}/results/job_out.1.*.txt"

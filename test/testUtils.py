@@ -8,6 +8,14 @@ commonBashFunctions = """#!/bin/bash
 # exit status meaning:
 # 0: OK   1: FAIL   2: TRY AGAIN LATER
 
+function remakeTest {
+  local taskName="$1"
+  crab remake --task ${taskName} --instance=REST_Instance --proxy=$PROXY 2>&1 | tee remakeLog.txt 
+  [ $? -ne 0 ] && exit 1  # if remake fails, abort
+  grep -q Success remakeLog.txt || exit 1  # if log does not contain "Success" string, abort
+  echo `grep Success remakeLog.txt | awk '{print $NF}'` # Print workDir to stdout
+}
+
 function checkStatus {
   # check that taskName has reached targetStatus and writes statusLog.txt
   # if target = SUBMITTED, accepts status COMPLETED or FAILED as well
@@ -16,11 +24,9 @@ function checkStatus {
   # Fail test if command fails or status is not good
   local taskName="$1"
   local targetStatus="$2"
-
-  crab remake --task ${taskName} --instance=REST_Instance --proxy=$PROXY 2>&1 | tee remakeLog.txt 
-  [ $? -ne 0 ] && exit 1  # if remake fails, abort
-  grep -q Success remakeLog.txt || exit 1  # if log does not contain "Success" string, abort
-  workDir=`grep Success remakeLog.txt | awk '{print $NF}'`
+  local workDir
+  workDir=$(remakeTest "$taskName")  # Capture output of remakeTest
+  [ -z "$workDir" ] && exit 1  # Ensure workDir is not empty
   crab status -d $workDir --proxy=$PROXY 2>&1 | tee  statusLog.txt
   [ $? -ne 0 ] && exit 1  # if crab status fails, abort
 
