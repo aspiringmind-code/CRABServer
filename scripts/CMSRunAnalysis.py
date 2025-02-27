@@ -493,7 +493,7 @@ def AddPsetHash(report=None, scramTool=None):
     if 'output' not in report['steps']['cmsRun']:
         return
 
-    pset_re = re.compile(r"(\s+).*\(([a-f0-9]{32,32})\)$")
+    pset_re = re.compile(r"^\s*.*?\(([a-f0-9]{32})\)")
     processing_history_re = re.compile("^Processing History:$")
     for outputMod in report['steps']['cmsRun']['output'].values():
         for fileInfo in outputMod:
