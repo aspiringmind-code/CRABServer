@@ -264,7 +264,7 @@ task_submission:
     - export CRABClient_version  # from .env
     - export REST_Instance  # from .env
     - export ROOT_DIR
-    - export CMSSW_release=CMSSW_13_0_2
+    - export CMSSW_release=CMSSW_7_6_7
     - export Task_Submission_Status_Tracking=$STATUS_TRACKING
     - export Client_Configuration_Validation=$CLIENT_CONFIGURATION_VALIDATION
     - export Client_Validation_Suite=$CLIENT_VALIDATION
@@ -295,7 +295,7 @@ client_validation_suite:
     - export CRABClient_version  # from .env
     - export REST_Instance  # from .env
     - export ROOT_DIR
-    - export CMSSW_release=CMSSW_13_0_2
+    - export CMSSW_release=CMSSW_7_6_7
     - export Client_Validation_Suite=true
     - ls workdir/submitted_tasks_CV_${CI_PIPELINE_ID}
     - bash -x cicd/gitlab/CV_config.sh
@@ -323,7 +323,7 @@ client_configuration_validation:
     - export CRABClient_version  # from .env
     - export REST_Instance  # from .env
     - export ROOT_DIR
-    - export CMSSW_release=CMSSW_13_0_2
+    - export CMSSW_release=CMSSW_7_6_7
     - export Client_Configuration_Validation=true
     - ls workdir/submitted_tasks_CCV_${CI_PIPELINE_ID}
     - bash cicd/gitlab/retry.sh bash -x cicd/gitlab/CCV_config.sh
@@ -349,7 +349,7 @@ check_status_tracking:
     - export REST_Instance  # from .env
     - export CRABClient_version  # from .env
     - export ROOT_DIR
-    - export CMSSW_release=CMSSW_13_0_2
+    - export CMSSW_release=CMSSW_7_6_7
     - export SCRAM_ARCH=el8_amd64_gcc11
     - export Check_Publication_Status=Yes
     - bash cicd/gitlab/retry.sh bash -x cicd/gitlab/executeStatusTracking.sh
