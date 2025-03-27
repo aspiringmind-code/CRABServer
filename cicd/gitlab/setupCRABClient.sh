@@ -49,8 +49,8 @@ case $CRABClient_version in
   GH)
     # TODO: specific fork/commit of crabclient repo still not support
     MY_CRAB=${PWD}/CRABClient
-    mkdir -p ${MY_CRAB}
-    rm -rf ${MY_CRAB}/*
+    rm -rf "$MY_CRAB"
+    mkdir -p "$MY_CRAB"
     git clone https://github.com/dmwm/CRABClient ${MY_CRAB} -b master
     cp ${ROOT_DIR}/src/python/ServerUtilities.py ${MY_CRAB}/src/python/
     cp ${ROOT_DIR}/src/python/RESTInteractions.py ${MY_CRAB}/src/python/
