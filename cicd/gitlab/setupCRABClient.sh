@@ -49,7 +49,7 @@ case $CRABClient_version in
   GH)
     MY_CRAB=${PWD}/CRABClient
     rm -rf CRABClient
-    git clone https://github.com/${CRABClient_user:-dmwm}/CRABClient ${MY_CRAB} -b ${CRABClient_commit:-master}
+    git clone https://$GITHUB_TOKEN@github.com/${CRABClient_user:-dmwm}/CRABClient ${MY_CRAB} -b ${CRABClient_commit:-master}
     cp ${ROOT_DIR}/src/python/ServerUtilities.py ${MY_CRAB}/src/python/
     cp ${ROOT_DIR}/src/python/RESTInteractions.py ${MY_CRAB}/src/python/
     # install the fake WMCore dependency for CRABClient, taking inspiration from
