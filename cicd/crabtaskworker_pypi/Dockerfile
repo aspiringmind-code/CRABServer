@@ -1,5 +1,5 @@
 # create data files ./data
-FROM python:3.8 AS build-data
+FROM python:3.12 AS build-data
 SHELL ["/bin/bash", "-c"]
 RUN mkdir /build \
     && apt-get update \
