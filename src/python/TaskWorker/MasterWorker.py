@@ -25,6 +25,7 @@ from TaskWorker.Actions.Recurring.BaseRecurringAction import handleRecurring
 from TaskWorker.Actions.Handler import handleResubmit, handleNewTask, handleKill
 from CRABUtils.TaskUtils import getTasks, updateTaskStatus
 import random
+from collections import defaultdict
 
 ## NOW placing this here, then to be verified if going into Action.Handler, or TSM
 ## The meaning of the elements in the 3-tuples are as follows:
@@ -241,6 +242,41 @@ class MasterWorker(object):
             return
         return getattr(mod, actionName)(self.config.TaskWorker.logsDir)
 
+    def roundRobinSelector(tasks, limit, user_key='tm_username'):
+        """
+        Select tasks using round-robin across users.
+
+        Args:
+            tasks (list): List of task dictionaries.
+            limit (int): Max number of tasks to return.
+            user_key (str): Key in task dict to group by user. Default is 'tm_username'.
+
+        Returns:
+            list: Selected tasks (fair-share round robin).
+        """
+        # Group tasks by user
+        tasks_by_user = defaultdict(list)
+        for task in tasks:
+            user = task[user_key]
+            tasks_by_user[user].append(task)
+
+        # Shuffle user order for fairness
+        users = list(tasks_by_user.keys())
+        random.shuffle(users)
+
+        # Round-robin select up to limit
+        selected = []
+        while len(selected) < limit and users:
+            for user in users[:]:  # Use a copy to allow safe removal
+                if tasks_by_user[user]:
+                    selected.append(tasks_by_user[user].pop(0))
+                    if len(selected) >= limit:
+                        break
+                if not tasks_by_user[user]:
+                    users.remove(user)
+
+        return selected
+
 
     def _externalScheduling(self, limit):
         """
@@ -266,13 +302,7 @@ class MasterWorker(object):
                 tasks_by_user[user].append(task)
 
             # Perform round-robin selection among users
-            users = list(tasks_by_user.keys())
-            random.shuffle(users)  # To ensure fair round-robin each time
-            selected_tasks = []
-
-            for user in users:
-                user_tasks = tasks_by_user[user]
-                selected_tasks.extend(user_tasks[:limit // len(users)])
+            selected_tasks = roundRobinSelector(waiting_tasks, limit)
 
             # Create and populate task_count dictionary
             task_count = {'selected': {}, 'waiting': {}}
@@ -364,28 +394,53 @@ class MasterWorker(object):
 
         return True
 
-    def _lockWork(self, limit, getstatus, setstatus):
-        """Today this is always returning true, because we do not want the worker to die if
+def _lockWork(self, limit, getstatus, setstatus):
+    """
+    Move tasks from getstatus → setstatus using round-robin fairness,
+    while using the CRAB REST API (subresource=process) per task.
+    Always returns True to prevent TaskWorker from exiting.
+    Today this is always returning true, because we do not want the worker to die if
            the server endpoint is not avaialable.
            Prints a log entry if answer is greater than 400:
             * the server call succeeded or
             * the server could not find anything to update or
-            * the server has an internal error"""
-        configreq = {'subresource': 'process', 'workername': self.config.TaskWorker.name, 'getstatus': getstatus, 'limit': limit, 'status': setstatus}
+            * the server has an internal error
+    """
+
+    # Step 1: Get a pool of tasks to select from (more than needed)
+    new_tasks = self.getWork(limit=1000, getstatus=getstatus, ignoreTWName=True)
+
+    # Step 2: Fair-share selection (round robin)
+    selected_tasks = roundRobinSelector(new_tasks, limit)
+
+    # Step 3: Use the REST endpoint to lock each task (subresource=process)
+    success_count = 0
+    for task in selected_tasks:
+        configreq = {
+            'subresource': 'process',
+            'workername': self.config.TaskWorker.name,
+            'getstatus': getstatus,
+            'limit': 1,
+            'status': setstatus
+        }
 
         try:
-            #self.server.post(self.restURInoAPI + '/workflowdb', data=urlencode(configreq))
             self.crabserver.post(api='workflowdb', data=urlencode(configreq))
+            self.logger.debug("Locked task: %s", task['tm_taskname'])
+            success_count += 1
         except HTTPException as hte:
-            msg = "HTTP Error during _lockWork: %s\n" % str(hte)
-            msg += "HTTP Headers are %s: " % hte.headers
-            self.logger.error(msg)
-            return False
-        except Exception: #pylint: disable=broad-except
-            self.logger.exception("Server could not process the _lockWork request (prameters are %s)", configreq)
-            return False
+            self.logger.warning("HTTP error while locking task %s: %s", task['tm_taskname'], str(hte))
+        except Exception:
+            self.logger.exception("Unexpected error while locking task %s", task['tm_taskname'])
 
-        return True
+    if success_count:
+        self.logger.info("Locked %d tasks from %s to %s", success_count, getstatus, setstatus)
+    else:
+        self.logger.debug("No tasks locked in _lockWork from %s to %s", getstatus, setstatus)
+
+    # Always return True to prevent TW from stopping due to inactivity
+    return True
+
 
     def runCanary(self, limit):
         # Decide whether to use canary_name based on the canary_fraction value.
@@ -578,16 +633,17 @@ class MasterWorker(object):
                     self.runCanary(limit=limit)
                   
             # getWork is run by both master TW and canary TW          
-            pendingwork = self.getWork(limit=limit, getstatus='HOLDING')
+            pendingwork = self.getWork(limit=1000, getstatus='HOLDING')
+            selected_pending = roundRobinSelector(pendingwork, limit)
 
-            if pendingwork:
+            if selected_pending:
                 keys = ['tm_task_command', 'tm_taskname']
-                tasksInfo = [{k:v for k, v in task.items() if k in keys} for task in pendingwork]
-                self.logger.info("Retrieved a total of %d works", len(pendingwork))
+                tasksInfo = [{k:v for k, v in task.items() if k in keys} for task in selected_pending]
+                self.logger.info("Retrieved a total of %d works", len(selected_pending))
                 self.logger.debug("Retrieved the following works: \n%s", str(tasksInfo))
 
             toInject = []
-            for task in pendingwork:
+            for task in selected_pending:
                 if self.failBannedTask(task):
                     continue
                 if self.skipRejectedCommand(task):
