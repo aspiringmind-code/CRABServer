@@ -394,52 +394,52 @@ class MasterWorker(object):
 
         return True
 
-def _lockWork(self, limit, getstatus, setstatus):
-    """
-    Move tasks from getstatus → setstatus using round-robin fairness,
-    while using the CRAB REST API (subresource=process) per task.
-    Always returns True to prevent TaskWorker from exiting.
-    Today this is always returning true, because we do not want the worker to die if
-           the server endpoint is not avaialable.
-           Prints a log entry if answer is greater than 400:
-            * the server call succeeded or
-            * the server could not find anything to update or
-            * the server has an internal error
-    """
+    def _lockWork(self, limit, getstatus, setstatus):
+        """
+        Move tasks from getstatus → setstatus using round-robin fairness,
+        while using the CRAB REST API (subresource=process) per task.
+        Always returns True to prevent TaskWorker from exiting.
+        Today this is always returning true, because we do not want the worker to die if
+            the server endpoint is not avaialable.
+            Prints a log entry if answer is greater than 400:
+                * the server call succeeded or
+                * the server could not find anything to update or
+                * the server has an internal error
+        """
 
-    # Step 1: Get a pool of tasks to select from (more than needed)
-    new_tasks = self.getWork(limit=1000, getstatus=getstatus, ignoreTWName=True)
+        # Step 1: Get a pool of tasks to select from (more than needed)
+        new_tasks = self.getWork(limit=1000, getstatus=getstatus, ignoreTWName=True)
 
-    # Step 2: Fair-share selection (round robin)
-    selected_tasks = roundRobinSelector(new_tasks, limit)
+        # Step 2: Fair-share selection (round robin)
+        selected_tasks = roundRobinSelector(new_tasks, limit)
 
-    # Step 3: Use the REST endpoint to lock each task (subresource=process)
-    success_count = 0
-    for task in selected_tasks:
-        configreq = {
-            'subresource': 'process',
-            'workername': self.config.TaskWorker.name,
-            'getstatus': getstatus,
-            'limit': 1,
-            'status': setstatus
-        }
+        # Step 3: Use the REST endpoint to lock each task (subresource=process)
+        success_count = 0
+        for task in selected_tasks:
+            configreq = {
+                'subresource': 'process',
+                'workername': self.config.TaskWorker.name,
+                'getstatus': getstatus,
+                'limit': 1,
+                'status': setstatus
+            }
 
-        try:
-            self.crabserver.post(api='workflowdb', data=urlencode(configreq))
-            self.logger.debug("Locked task: %s", task['tm_taskname'])
-            success_count += 1
-        except HTTPException as hte:
-            self.logger.warning("HTTP error while locking task %s: %s", task['tm_taskname'], str(hte))
-        except Exception:
-            self.logger.exception("Unexpected error while locking task %s", task['tm_taskname'])
+            try:
+                self.crabserver.post(api='workflowdb', data=urlencode(configreq))
+                self.logger.debug("Locked task: %s", task['tm_taskname'])
+                success_count += 1
+            except HTTPException as hte:
+                self.logger.warning("HTTP error while locking task %s: %s", task['tm_taskname'], str(hte))
+            except Exception:
+                self.logger.exception("Unexpected error while locking task %s", task['tm_taskname'])
 
-    if success_count:
-        self.logger.info("Locked %d tasks from %s to %s", success_count, getstatus, setstatus)
-    else:
-        self.logger.debug("No tasks locked in _lockWork from %s to %s", getstatus, setstatus)
+        if success_count:
+            self.logger.info("Locked %d tasks from %s to %s", success_count, getstatus, setstatus)
+        else:
+            self.logger.debug("No tasks locked in _lockWork from %s to %s", getstatus, setstatus)
 
-    # Always return True to prevent TW from stopping due to inactivity
-    return True
+        # Always return True to prevent TW from stopping due to inactivity
+        return True
 
 
     def runCanary(self, limit):
