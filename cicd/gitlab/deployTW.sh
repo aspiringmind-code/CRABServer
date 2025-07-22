@@ -25,8 +25,17 @@ docker rm ${Service}; \
 """
 
 #2. check if ${Service} is running
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no crab3@${Environment}.cern.ch \
-"docker exec ${Service} bash -c 'ps exfww | grep $processName | grep -v grep | head -1' || true" > isServiceRunning.log
+for i in {1..5}; do
+  ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no crab3@${Environment}.cern.ch \
+    "docker exec ${Service} bash -c 'ps exfww | grep \"$processName\" | grep -v grep | head -1'" > isServiceRunning.log 2>/dev/null || true
+
+  if [ -s isServiceRunning.log ]; then
+    break
+  fi
+
+  echo "[$(date)] Waiting for ${processName} to start inside ${Service} container on ${Environment} (attempt $i)..."
+  sleep 2
+done
 cat isServiceRunning.log
 if [ $(cat isServiceRunning.log |wc -l) -ne 1 ] ; then
 	echo "${Service} image in ${Environment} update did not succeed. ${Service} is not running. Please investigate manually." > $WORK_DIR/logFile.txt
