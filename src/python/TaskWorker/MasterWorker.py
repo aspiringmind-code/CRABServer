@@ -301,7 +301,7 @@ class MasterWorker(object):
                 tasks_by_user[user].append(task)
 
             # Perform round-robin selection among users
-            selected_tasks = roundRobinSelector(waiting_tasks, limit)
+            selected_tasks = self.roundRobinSelector(waiting_tasks, limit)
 
             # Create and populate task_count dictionary
             task_count = {'selected': {}, 'waiting': {}}
@@ -410,7 +410,7 @@ class MasterWorker(object):
         new_tasks = self.getWork(limit=1000, getstatus=getstatus, ignoreTWName=True)
 
         # Step 2: Fair-share selection (round robin)
-        selected_tasks = roundRobinSelector(new_tasks, limit)
+        selected_tasks = self.roundRobinSelector(new_tasks, limit)
         if not selected_tasks:
             return False
         # Step 3: Use the REST endpoint to lock each task (subresource=process)
@@ -628,7 +628,7 @@ class MasterWorker(object):
                   
             # getWork is run by both master TW and canary TW          
             pendingwork = self.getWork(limit=1000, getstatus='HOLDING')
-            selected_pending = roundRobinSelector(pendingwork, limit)
+            selected_pending = self.roundRobinSelector(pendingwork, limit)
 
             if selected_pending:
                 keys = ['tm_task_command', 'tm_taskname']
