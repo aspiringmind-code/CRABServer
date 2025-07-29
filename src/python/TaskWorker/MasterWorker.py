@@ -412,26 +412,21 @@ class MasterWorker(object):
 
         # Step 2: Fair-share selection (round robin)
         selected_tasks = roundRobinSelector(new_tasks, limit)
-
+        if not selected_tasks:
+            return False
         # Step 3: Use the REST endpoint to lock each task (subresource=process)
         success_count = 0
-        for task in selected_tasks:
-            configreq = {
-                'subresource': 'process',
-                'workername': self.config.TaskWorker.name,
-                'getstatus': getstatus,
-                'limit': 1,
-                'status': setstatus
-            }
 
-            try:
-                self.crabserver.post(api='workflowdb', data=urlencode(configreq))
-                self.logger.debug("Locked task: %s", task['tm_taskname'])
+        try:
+            for task in selected_tasks:
+                task_name = task['tm_taskname']
+                updateTaskStatus(crabserver=self.crabserver, taskName=task_name, status=setstatus, logger=self.logger)
+                self.logger.debug("Locked task: %s", task_name)
                 success_count += 1
-            except HTTPException as hte:
-                self.logger.warning("HTTP error while locking task %s: %s", task['tm_taskname'], str(hte))
-            except Exception:
-                self.logger.exception("Unexpected error while locking task %s", task['tm_taskname'])
+        except HTTPException as hte:
+            self.logger.warning("HTTP error while locking task %s: %s", task['tm_taskname'], str(hte))
+        except Exception:
+            self.logger.exception("Unexpected error while locking task %s", task['tm_taskname'])
 
         if success_count:
             self.logger.info("Locked %d tasks from %s to %s", success_count, getstatus, setstatus)
