@@ -242,7 +242,7 @@ class MasterWorker(object):
             return
         return getattr(mod, actionName)(self.config.TaskWorker.logsDir)
 
-    def roundRobinSelector(tasks, limit):
+    def roundRobinSelector(self, tasks, limit):
         """
         Select tasks using round-robin across users.
 
