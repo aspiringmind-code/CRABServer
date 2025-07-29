@@ -242,14 +242,13 @@ class MasterWorker(object):
             return
         return getattr(mod, actionName)(self.config.TaskWorker.logsDir)
 
-    def roundRobinSelector(tasks, limit, user_key='tm_username'):
+    def roundRobinSelector(tasks, limit):
         """
         Select tasks using round-robin across users.
 
         Args:
             tasks (list): List of task dictionaries.
             limit (int): Max number of tasks to return.
-            user_key (str): Key in task dict to group by user. Default is 'tm_username'.
 
         Returns:
             list: Selected tasks (fair-share round robin).
@@ -257,7 +256,7 @@ class MasterWorker(object):
         # Group tasks by user
         tasks_by_user = defaultdict(list)
         for task in tasks:
-            user = task[user_key]
+            user = task['tm_username']
             tasks_by_user[user].append(task)
 
         # Shuffle user order for fairness
