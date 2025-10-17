@@ -62,7 +62,6 @@ VARS Job{count} count="{count}"
 VARS Job{count} My.CRAB_localOutputFiles="\\"{localOutputFiles}\\""
 VARS Job{count} My.CRAB_DataBlock="\\"{block}\\""
 VARS Job{count} My.CRAB_Destination="\\"{destination}\\""
-ABORT-DAG-ON Job{count} 3
 """
 
 
