@@ -66,7 +66,7 @@ class DagmanResubmitter(TaskAction):
         # Processing and tail DAGs will be restarted by these scrips on the
         # schedd after the modifications are made.
         rootConst = f"(CRAB_DAGType =?= \"BASE\" && CRAB_ReqName =?= {classad.quote(workflow)})"
-        rootConstJob = f"(CRAB_DAGType =?= "Job" && CRAB_ReqName =?= {classad.quote(workflow)})"
+        rootConstJob = f"(CRAB_DAGType =?= \"Job\" && CRAB_ReqName =?= {classad.quote(workflow)})"
         self.logger.info("rootConst for resubmission is %s. \n", rootConst)
         self.logger.info("rootConstJob for resubmission is %s. \n", rootConstJob)
 
