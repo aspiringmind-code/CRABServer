@@ -889,7 +889,8 @@ class DagmanCreator(TaskAction):
 
         overhead = getattr(self.config.TaskWorker, 'automaticProcessingOverheadMins', 60)
 
-        self.task['max_runtime'] = runtime
+        # max_runtime here eventually goes into process.maxSecondsUntilRampdown via TweakPSet.py
+        self.task['max_runtime'] = runtime  # this will eventually go into 
         # include a factor of 4 as a buffer
         self.task['maxproberuntime'] = proberuntime * 4
         self.task['maxtailruntime'] = tailruntime * 5
@@ -904,6 +905,7 @@ class DagmanCreator(TaskAction):
                 # given to CMSSW
                 self.task['tm_maxjobruntime'] = min(runtime + overhead, self.task['tm_maxjobruntime'])
             elif stage == 'tail':
+                # a negative value means no time limit in CMSSW
                 self.task['max_runtime'] = -1
 
         outfiles = self.task['tm_outfiles'] + self.task['tm_tfile_outfiles'] + self.task['tm_edm_outfiles']
