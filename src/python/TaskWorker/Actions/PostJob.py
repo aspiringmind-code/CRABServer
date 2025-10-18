@@ -1804,7 +1804,7 @@ class PostJob():
                     self.set_dashboard_state('FAILED')
                     self.set_state_ClassAds('FAILED')
                     self.logger.info("====== Finished to analyze job exit status.")
-                    res = JOB_RETURN_CODES.FATAL_ERROR, ""
+                    res = JOB_RETURN_CODES.RECOVERABLE_ERROR, "" #Replacing FATAL_ERROR with RECOVERABLE_ERROR
                 else:
                     msg = "The retry handler indicated this was a recoverable error."
                     msg += " DAGMan will retry."
@@ -1830,7 +1830,7 @@ class PostJob():
                 self.set_dashboard_state('FAILED')
                 self.set_state_ClassAds('FAILED')
                 self.logger.info("====== Finished to analyze job exit status.")
-                res = JOB_RETURN_CODES.FATAL_ERROR, ""
+                res = JOB_RETURN_CODES.RECOVERABLE_ERROR, "" #Replacing FATAL_ERROR with RECOVERABLE_ERROR
         else:
             self.logger.info("====== Finished to analyze job exit status.")
         return res
@@ -3019,7 +3019,7 @@ class PostJob():
             self.logger.info(msg)
             self.set_dashboard_state('FAILED', exitCode=exitCode)
             self.set_state_ClassAds('FAILED', exitCode=exitCode)
-            return JOB_RETURN_CODES.FATAL_ERROR
+            return JOB_RETURN_CODES.RECOVERABLE_ERROR  #Replacing FATAL_ERROR with RECOVERABLE_ERROR
         msg = "Job will be retried by DAGMan."
         self.logger.info(msg)
         self.set_dashboard_state('COOLOFF', exitCode=exitCode)
