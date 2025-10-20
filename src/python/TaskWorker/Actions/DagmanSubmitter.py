@@ -416,12 +416,7 @@ class DagmanSubmitter(TaskAction.TaskAction):
         addJobSubmitInfoToDagJobJDL(dagJobJDL, jobSubmit)  # start with the Job.submit from DagmanCreator
 
         dagJobJDL['My.CRAB_TaskSubmitTime'] = str(task['tm_start_time'])
-        # Also include the DAGMan config file for rescue DAG behavior
-        dagConfigFile = os.path.splitext('RunJobs.dag')[0] + '.dag.config'
-        inputFiles = filesForScheduler + ['subdag.jdl']
-        if os.path.exists(dagConfigFile):
-            inputFiles.append(dagConfigFile)
-        dagJobJDL['transfer_input_files'] = ", ".join(inputFiles)
+        dagJobJDL['transfer_input_files'] = ", ".join(filesForScheduler + ['subdag.jdl'])
         outputFiles = ["RunJobs.dag.dagman.out", "RunJobs.dag.rescue.001"]
         dagJobJDL['transfer_output_files'] = ", ".join(outputFiles)
 

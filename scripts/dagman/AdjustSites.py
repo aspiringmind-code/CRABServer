@@ -84,7 +84,7 @@ def makeWebDir(ad):
 
         ## Make all the necessary symbolic links in the web directory.
         sourceLinks = ["debug",
-                       "RunJobs.dag", "RunJobs.dag.dagman.out", "RunJobs.dag.nodes.log",
+                       "RunJobs.dag", "RunJobs.dag.config", "RunJobs.dag.dagman.out", "RunJobs.dag.nodes.log",
                        "input_files.tar.gz", "run_and_lumis.tar.gz",
                        "input_dataset_lumis.json", "input_dataset_duplicate_lumis.json",
                        "aso_status.json", "error_summary.json", "site.ad.json"
