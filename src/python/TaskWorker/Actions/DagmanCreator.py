@@ -40,7 +40,7 @@ import htcondor2 as htcondor
 import classad2 as classad
 
 DAG_HEADER = """
-
+CONFIG RunJobs.dag.config
 NODE_STATUS_FILE node_state{nodestate} 120 ALWAYS-UPDATE
 
 # NOTE: a file must be present, but 'noop' makes it not be read.
