@@ -40,7 +40,7 @@ import htcondor2 as htcondor
 import classad2 as classad
 
 DAG_HEADER = """
-CONFIG RunJobs.dag.config
+#CONFIG RunJobs.dag.config
 NODE_STATUS_FILE node_state{nodestate} 120 ALWAYS-UPDATE
 
 # NOTE: a file must be present, but 'noop' makes it not be read.
@@ -51,6 +51,7 @@ NODE_STATUS_FILE node_state{nodestate} 120 ALWAYS-UPDATE
 
 
 DAG_FRAGMENT = """
+ENV SET _CONDOR_DAGMAN_RESET_RETRIES_UPON_RESCUE=True
 JOB Job{count} Job.{count}.submit
 SCRIPT {prescriptDefer} PRE  Job{count} dag_bootstrap.sh PREJOB $RETRY {count} {taskname} {backend} {stage}
 SCRIPT DEFER 4 1800 POST Job{count} dag_bootstrap.sh POSTJOB $JOBID $RETURN $RETRY $MAX_RETRIES {taskname} {count} {tempDest} {outputDest} cmsRun_{count}.log.tar.gz {stage} {remoteOutputFiles}
