@@ -86,6 +86,7 @@ def addJobSubmitInfoToDagJobJDL(dagJdl, jobSubmit):
         'My.CMS_Type',
         'My.CMS_WMTool',
         'My.CMS_TaskType',
+        'My.CRAB_ResetRetries',
     ]
 
     for adName in adsToPort:
@@ -539,6 +540,7 @@ class DagmanSubmitter(TaskAction.TaskAction):
         dagJobJDL["error"] = os.path.join(task['scratch'], "request.err")
         dagJobJDL["Executable"] = cmd
         dagJobJDL['Arguments'] = arg
+        dagJobJDL['My.CRAB_ResetRetries'] = "true"
 
         # for debugging purpose
         with open('DAGJob.jdl', 'w', encoding='utf-8') as fd:
@@ -555,12 +557,5 @@ class DagmanSubmitter(TaskAction.TaskAction):
             raise TaskWorkerException(f"Submission failed with:\n{hte}") from hte
 
         self.logger.debug("Condor cluster ID returned from submit is: %s", clusterId)
-
-        # ensure we default to no-reset; DagmanResubmitter toggles CRAB_ResetRetries at resubmission time
-        if 'CRAB_ResetRetries' not in dagJobJDL:
-            dagJobJDL['My.CRAB_ResetRetries'] = "false"
-        else:
-            # normalize to My.* namespace
-            dagJobJDL['My.CRAB_ResetRetries'] = dagJobJDL['CRAB_ResetRetries']
 
         return clusterId

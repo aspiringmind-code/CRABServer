@@ -24,11 +24,6 @@ crabId=$7
 retry=$4
 outputDest=$9
 
-# Extra safety: unique postjob log target to prevent collisions even on quick restarts
-if [[ $scriptKind == "POSTJOB" ]]; then
-  export CRAB_PJ_LOG="postjob.$crabId.$retry.txt"
-fi
-
 if [[ $scriptKind == "POSTJOB" ]] && [[ $outputDest =~ "/rucio/" ]] ; then
   pjlog=postjob.$crabId.$retry.txt
   defers=`grep -c DEFERRING $pjlog`  # there's one defer every 30min, so this counts time !
@@ -42,11 +37,6 @@ if [[ $scriptKind == "POSTJOB" ]] && [[ $outputDest =~ "/rucio/" ]] ; then
     echo `date` "dag_boostrap.sh DEFERRING. PostJob will run again after 30 min" >> $pjlog
     exit 4  # tells Dagman to re-run me after DEFER time indicated in Dagman file
   fi
-fi
-
-# Guard against two PostJobs writing same file due to immediate retry collisions
-if [[ $scriptKind == "POSTJOB" ]]; then
-  : # CRAB_PJ_LOG already includes retry number; PJ itself appends for deferrals
 fi
 
 source /etc/os-release

@@ -23,6 +23,7 @@ fi
 
 export _CONDOR_DAGMAN_LOG=$PWD/$1.dagman.out
 export _CONDOR_MAX_DAGMAN_LOG=0
+export _CONDOR_DAGMAN_RESET_RETRIES_UPON_RESCUE=True
 
 CONDOR_VERSION=`condor_version | head -n 1`
 PROC_ID=`grep '^ProcId =' $_CONDOR_JOB_AD | tr -d '"' | awk '{print $NF;}'`
@@ -37,7 +38,7 @@ elif [ ! -r $X509_USER_PROXY ]; then
     EXIT_STATUS=6
 else
     # There used to be -Suppress_notification here. Why?
-    condor_dagman -f -l . -Lockfile $PWD/$1.lock -AutoRescue 1 -DoRescueFrom 0 -Dag $PWD/$1 -Dagman `which condor_dagman` -CsdVersion "$CONDOR_VERSION" -debug 2 -verbose
+    condor_dagman -f -l . -Lockfile $PWD/$1.lock -AutoRescue 1 -Dag $PWD/$1 -Dagman `which condor_dagman` -CsdVersion "$CONDOR_VERSION" -debug 2 -verbose
     EXIT_STATUS=$?
 fi
 # We do this after the job because dagman will cowardly refuse to overwrite any pre-existing file, even if it's empty

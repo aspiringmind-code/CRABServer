@@ -76,8 +76,6 @@ class DagmanResubmitter(TaskAction):
                   'CRAB_RequestedMemory'      : 'maxmemory',
                   'JobPrio'            : 'priority'
                  }
-        # Feature flag: enable reset-retries-upon-rescue behavior
-        resetRetries = True #getattr(self.config.TaskWorker, 'resetRetriesOnResubmit', True)
 
         if ('resubmit_jobids' in task) and task['resubmit_jobids']:
             self.logger.debug("Resubmitting when JOBIDs were specified")
@@ -98,12 +96,9 @@ class DagmanResubmitter(TaskAction):
                         else:
                             newAdValue = str(task['resubmit_'+taskparam])
                         schedd.edit(rootConst, adparam, newAdValue)
-                # Signal bootstrap to restart DAGMan in rescue mode with retries reset
-                if resetRetries:
-                    self.logger.info("Setting CRAB_ResetRetries=True for %s", workflow)
-                    schedd.edit(rootConst, "CRAB_ResetRetries", "true")
-                else:
-                    self.logger.info("CRAB_ResetRetries disabled by configuration.")
+
+                self.logger.info("Setting CRAB_ResetRetries=True for %s", workflow)
+                schedd.edit(rootConst, "CRAB_ResetRetries", "true")
                 # finally restart the dagman with the 3 lines below
                 schedd.act(htcondor.JobAction.Hold, rootConst)
                 schedd.edit(rootConst, "HoldKillSig", 'SIGUSR1')

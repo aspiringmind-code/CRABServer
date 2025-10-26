@@ -55,14 +55,13 @@ JOB Job{count} Job.{count}.submit
 SCRIPT {prescriptDefer} PRE  Job{count} dag_bootstrap.sh PREJOB $RETRY {count} {taskname} {backend} {stage}
 SCRIPT DEFER 4 1800 POST Job{count} dag_bootstrap.sh POSTJOB $JOBID $RETURN $RETRY $MAX_RETRIES {taskname} {count} {tempDest} {outputDest} cmsRun_{count}.log.tar.gz {stage} {remoteOutputFiles}
 #PRE_SKIP Job{count} 3
-RETRY Job{count} {maxretries} UNLESS-EXIT 2
+RETRY Job{count} {maxretries}
 VARS Job{count} count="{count}"
 # following 3 classAds could possibly be moved to Job.submit but as they are job-dependent
 # would need to be done in the PreJob... doing it here is a bit ugly, but simpler
 VARS Job{count} My.CRAB_localOutputFiles="\\"{localOutputFiles}\\""
 VARS Job{count} My.CRAB_DataBlock="\\"{block}\\""
 VARS Job{count} My.CRAB_Destination="\\"{destination}\\""
-ABORT-DAG-ON Job{count} 3
 """
 
 # Note: POST job naming uses $RETRY in file names; on rescue restarts retry resets
@@ -538,12 +537,7 @@ class DagmanCreator(TaskAction):
                 if cudaRuntime:
                     jobSubmit['My.CUDARuntime'] = classad.quote(cudaRuntime)
 
-        # ensure we default to no-reset; DagmanResubmitter toggles CRAB_ResetRetries at resubmission time
-        if 'CRAB_ResetRetries' not in jobSubmit:
-            jobSubmit['My.CRAB_ResetRetries'] = "false"
-        else:
-            # normalize to My.* namespace
-            jobSubmit['My.CRAB_ResetRetries'] = jobSubmit['CRAB_ResetRetries']
+        jobSubmit['My.CRAB_ResetRetries'] = "true"
 
         with open("Job.submit", "w", encoding='utf-8') as fd:
             print(jobSubmit, file=fd)
