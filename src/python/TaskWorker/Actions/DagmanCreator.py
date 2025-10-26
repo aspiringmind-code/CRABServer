@@ -65,6 +65,9 @@ VARS Job{count} My.CRAB_Destination="\\"{destination}\\""
 ABORT-DAG-ON Job{count} 3
 """
 
+# Note: POST job naming uses $RETRY in file names; on rescue restarts retry resets
+# are performed by DAGMan, while the CRAB retry counter is persistent to avoid file collisions.
+
 
 SUBDAG_FRAGMENT = """
 SUBDAG EXTERNAL Job{count}SubJobs RunJobs{count}.subdag NOOP
@@ -535,6 +538,13 @@ class DagmanCreator(TaskAction):
                 if cudaRuntime:
                     jobSubmit['My.CUDARuntime'] = classad.quote(cudaRuntime)
 
+        # ensure we default to no-reset; DagmanResubmitter toggles CRAB_ResetRetries at resubmission time
+        if 'CRAB_ResetRetries' not in jobSubmit:
+            jobSubmit['My.CRAB_ResetRetries'] = "false"
+        else:
+            # normalize to My.* namespace
+            jobSubmit['My.CRAB_ResetRetries'] = jobSubmit['CRAB_ResetRetries']
+
         with open("Job.submit", "w", encoding='utf-8') as fd:
             print(jobSubmit, file=fd)
 
@@ -693,7 +703,7 @@ class DagmanCreator(TaskAction):
             argDict['lastEvent'] = dagspec['lastEvent']  # 'None'
             argDict['firstLumi'] = dagspec['firstLumi']  # 'None'
             argDict['firstRun'] = dagspec['firstRun']  # 'None'
-            argDict['userSandbox'] = self.task['tm_user_sandbox']  #SB we could simply hardocode 'sandbox.tar.gz'
+            argDict['userSandbox'] = self.task['tm_user_sandbox']  #SB we could simply hardcode 'sandbox.tar.gz'
             argDict['cmsswVersion'] = self.task['tm_job_sw']  # 'CMSSW_9_2_5'
             argDict['scramArch'] = self.task['tm_job_arch']  # 'slc6_amd64_gcc530'
             argDict['seeding'] = 'AutomaticSeeding'

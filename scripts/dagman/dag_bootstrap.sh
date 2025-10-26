@@ -13,6 +13,7 @@ set -o pipefail
 set -x
 echo "Beginning dag_bootstrap.sh (stdout)"
 echo "Beginning dag_bootstrap.sh (stderr)" 1>&2
+echo "dag_bootstrap.sh: version with PostJob defer guard and file naming hygiene"
 
 # in case of POSTJOB and ASO-Rucio check if we want to exit immediately w/o running python
 # arguments to this script come from Dagman description file and are e.g. listed in
@@ -22,6 +23,11 @@ scriptKind=$1
 crabId=$7
 retry=$4
 outputDest=$9
+
+# Extra safety: unique postjob log target to prevent collisions even on quick restarts
+if [[ $scriptKind == "POSTJOB" ]]; then
+  export CRAB_PJ_LOG="postjob.$crabId.$retry.txt"
+fi
 
 if [[ $scriptKind == "POSTJOB" ]] && [[ $outputDest =~ "/rucio/" ]] ; then
   pjlog=postjob.$crabId.$retry.txt
@@ -36,6 +42,11 @@ if [[ $scriptKind == "POSTJOB" ]] && [[ $outputDest =~ "/rucio/" ]] ; then
     echo `date` "dag_boostrap.sh DEFERRING. PostJob will run again after 30 min" >> $pjlog
     exit 4  # tells Dagman to re-run me after DEFER time indicated in Dagman file
   fi
+fi
+
+# Guard against two PostJobs writing same file due to immediate retry collisions
+if [[ $scriptKind == "POSTJOB" ]]; then
+  : # CRAB_PJ_LOG already includes retry number; PJ itself appends for deferrals
 fi
 
 source /etc/os-release

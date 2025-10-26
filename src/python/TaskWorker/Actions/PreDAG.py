@@ -339,10 +339,22 @@ class PreDAG():
         """ Submit a subdag
             see https://github.com/dmwm/CRABServer/issues/8488 for CRAB_DAGType definition and usage
         """
-        subprocess.check_call(['condor_submit_dag', '-DoRecov', '-AutoRescue', '0', '-MaxPre', '20',
-                               '-MaxIdle', str(maxidle), '-MaxPost', str(maxpost), '-insert_sub_file', 'subdag.jdl',
-                               '-append', f'Environment = "_CONDOR_DAGMAN_LOG={os.getcwd()}/{subdag}.dagman.out"',
-                               '-append', f'My.CRAB_DAGType = "{stage.upper()}"', subdag])
+        # If base DAG signaled a retry reset, propagate to subdags too
+        resetRetries = False
+        try:
+            with open(os.environ.get("_CONDOR_JOB_AD"), 'r', encoding='utf-8') as fh:
+                ad = classad.parseOne(fh)
+                resetRetries = bool(ad.get('CRAB_ResetRetries', False))
+        except Exception:
+            resetRetries = False
+        args = ['condor_submit_dag', '-DoRecov', '-AutoRescue', '0', '-MaxPre', '20',
+                                '-MaxIdle', str(maxidle), '-MaxPost', str(maxpost), '-insert_sub_file', 'subdag.jdl',
+                '-append', f'Environment = "_CONDOR_DAGMAN_LOG={os.getcwd()}/{subdag}.dagman.out"',
+                '-append', f'My.CRAB_DAGType = "{stage.upper()}"']
+        if resetRetries:
+            os.environ['_CONDOR_DAGMAN_RESET_RETRIES_UPON_RESCUE'] = 'True'
+            args += ['-DoRescueFrom', '1']
+        subprocess.check_call(args + [subdag])
 
     def adjustLumisForCompletion(self, task, unprocessed):
         """Sets the run, lumi information in the task information for the

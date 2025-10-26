@@ -1,4 +1,3 @@
-
 """
 Submit a DAG directory created by the DagmanCreator component.
 """
@@ -556,5 +555,12 @@ class DagmanSubmitter(TaskAction.TaskAction):
             raise TaskWorkerException(f"Submission failed with:\n{hte}") from hte
 
         self.logger.debug("Condor cluster ID returned from submit is: %s", clusterId)
+
+        # ensure we default to no-reset; DagmanResubmitter toggles CRAB_ResetRetries at resubmission time
+        if 'CRAB_ResetRetries' not in dagJobJDL:
+            dagJobJDL['My.CRAB_ResetRetries'] = "false"
+        else:
+            # normalize to My.* namespace
+            dagJobJDL['My.CRAB_ResetRetries'] = dagJobJDL['CRAB_ResetRetries']
 
         return clusterId

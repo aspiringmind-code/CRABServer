@@ -1,6 +1,7 @@
 #!/bin/sh
 source /etc/profile
 echo "Beginning dag_boostrap_startup.sh at $(date)"
+echo "dag_bootstrap_startup.sh: version with DAGMan rescue + retry reset"
 echo "On host: $(hostname)"
 echo "At path: $(pwd)"
 echo "As user: $(whoami)"
@@ -183,6 +184,34 @@ else
     exit 1
 fi
 
+# If resubmission requested, prepare rescue with retries reset
+# Note: HTCondor honors _CONDOR_DAGMAN_RESET_RETRIES_UPON_RESCUE when running a rescue DAG.
+RESET_RETRIES=false
+grep -q '^CRAB_ResetRetries = true' $_CONDOR_JOB_AD && RESET_RETRIES=true
+
+if $RESET_RETRIES ; then
+    echo "CRAB_ResetRetries detected in job ad; enabling DAGMAN_RESET_RETRIES_UPON_RESCUE"
+    export _CONDOR_DAGMAN_RESET_RETRIES_UPON_RESCUE=True
+    # Ensure we have a rescue DAG so condor_dagman enters rescue path. Create minimal one if missing.
+    if [ ! -f "$1.rescue.001" ] && [ ! -f "$1.dag.rescue.001" ]; then
+        echo "Creating minimal rescue DAG: $1.rescue.001"
+        # HTCondor accepts both basename.rescue.N or original.dag.rescue.N; keep same dir
+        echo "# Minimal rescue file to trigger rescue mode" > "$1.rescue.001"
+    fi
+fi
+
+# Clean up possible stale stdout files to avoid PreJob skipping due to presence of job_out.<id>
+# Each PostJob will rotate to WEB_DIR as job_out.<id>.<crab_retry>.txt; make sure no bare job_out.* remains.
+if $RESET_RETRIES ; then
+    echo "Cleaning up stale job_out.* files to avoid PreJob confusion on resubmission"
+    for f in job_out.* ; do
+        [ -f "$f" ] || continue
+        # If not rotated yet, archive with timestamp to avoid collisions
+        ts=$(date +%s)
+        mv -f "$f" "WEB_DIR/${f}.${ts}.stale" 2>/dev/null || rm -f "$f"
+    done
+fi
+
 export _CONDOR_DAGMAN_LOG=$PWD/$1.dagman.out
 export _CONDOR_DAGMAN_GENERATE_SUBDAG_SUBMITS=False
 export _CONDOR_MAX_DAGMAN_LOG=0
@@ -277,7 +306,19 @@ EOF
     # This is also done in the PostJob to submit subdags for tail-catching
     # and automated splitting.  Values below will also have to be changed
     # there in (createSubdagSubmission)!
-    exec nice -n 19 condor_dagman -f -l . -Lockfile $PWD/$1.lock -DoRecov -AutoRescue 0 -MaxPre 20 -MaxIdle $MAX_IDLE -MaxPost $MAX_POST -Dag $PWD/$1 -Dagman `which condor_dagman` -CsdVersion "$CONDOR_VERSION" -debug 4 -verbose
+    #
+    # If reset requested, run condor_dagman in rescue mode with retries reset
+    if $RESET_RETRIES ; then
+        echo "Starting condor_dagman in rescue mode with retries reset"
+        # Force rescue-from 1; DoRecov keeps DONE nodes; AutoRescue off to avoid surprises.
+        exec nice -n 19 condor_dagman -f -l . \
+            -Lockfile $PWD/$1.lock \
+            -DoRecov -AutoRescue 0 -DoRescueFrom 1 \
+            -MaxPre 20 -MaxIdle $MAX_IDLE -MaxPost $MAX_POST \
+            -Dag $PWD/$1 -Dagman `which condor_dagman` -CsdVersion "$CONDOR_VERSION" -debug 4 -verbose
+    else
+        exec nice -n 19 condor_dagman -f -l . -Lockfile $PWD/$1.lock -DoRecov -AutoRescue 0 -MaxPre 20 -MaxIdle $MAX_IDLE -MaxPost $MAX_POST -Dag $PWD/$1 -Dagman `which condor_dagman` -CsdVersion "$CONDOR_VERSION" -debug 4 -verbose
+    fi
     EXIT_STATUS=$?
     echo "condor_dagman terminated with EXIT_STATUS=${EXIT_STATUS} at `date`"
 fi
