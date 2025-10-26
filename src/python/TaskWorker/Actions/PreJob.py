@@ -12,6 +12,7 @@ import json
 import errno
 import logging
 from ast import literal_eval
+from typing import Iterable
 
 from ServerUtilities import getWebdirForDb, insertJobIdSid, pythonListToClassAdExprTree
 from TaskWorker.Actions.RetryJob import JOB_RETURN_CODES
@@ -39,6 +40,49 @@ class PreJob:
         self.prejob_exit_code = None
         self.logger = logging.getLogger()
 
+    def _should_reset_retry_info(self) -> bool:
+        """
+        Decide whether to reset retry_info for this job based on ClassAds set by DagmanResubmitter.
+        Behavior:
+          - If CRAB_ResetRetryInfo is not set or falsey, return False.
+          - If CRAB_ResubmitList exists and is iterable, reset only if this job_id is listed.
+          - If CRAB_ResubmitList does not exist (or parsing fails), reset for all jobs.
+        """
+        try:
+            if 'CRAB_ResetRetryInfo' not in self.task_ad:
+                return False
+            reset_flag = self.task_ad['CRAB_ResetRetryInfo']
+            # Any non-false value triggers a reset
+            if not bool(reset_flag):
+                return False
+            # If a specific list is provided, respect it
+            if 'CRAB_ResubmitList' in self.task_ad:
+                lst = self.task_ad['CRAB_ResubmitList']
+                # ClassAd list prints like { "1","2" } but behaves iterable
+                # Normalize to strings and compare to self.job_id
+                try:
+                    if isinstance(lst, Iterable):
+                        listed = set(str(x) for x in lst)
+                        return str(self.job_id) in listed
+                except Exception:
+                    # If anything goes wrong reading the list, default to resetting all
+                    return True
+            # No list provided: reset for all
+            return True
+        except Exception:
+            # Be conservative: don't reset if something unexpected happened here
+            self.logger.exception("Error while evaluating CRAB_ResetRetryInfo; skipping retry_info reset.")
+            return False
+
+    def _reset_retry_info_for_job(self):
+        """
+        Overwrite retry_info/job.<id>.txt with {'pre':0,'post':0}.
+        """
+        retry_info_file_name = f"retry_info/job.{self.job_id}.txt"
+        os.makedirs(os.path.dirname(retry_info_file_name), exist_ok=True)
+        with open(retry_info_file_name + ".tmp", 'w', encoding='utf-8') as fd:
+            json.dump({'pre': 0, 'post': 0}, fd)
+        os.replace(retry_info_file_name + ".tmp", retry_info_file_name)
 
     def calculate_crab_retry(self):
         """
@@ -51,6 +95,23 @@ class PreJob:
         restarted before the post-job was run and after the job completed.
         """
         retmsg = ""
+        ## If DagmanResubmitter requested a reset for this job, do it before reading.
+        try:
+            # We need the task_ad to read the reset signal; ensure it's loaded.
+            if not self.task_ad:
+                # Try to load quickly; ignore errors as calculate_crab_retry used to run before get_task_ad
+                try:
+                    if '_CONDOR_JOB_AD' in os.environ:
+                        self.task_ad = classad.parseOne(open(os.environ['_CONDOR_JOB_AD'], 'r', encoding='utf-8'))
+                except Exception:
+                    # Will proceed without task_ad, meaning no reset
+                    pass
+            if self._should_reset_retry_info():
+                self.logger.info("Resetting retry_info for job %s per CRAB_ResetRetryInfo signal.", self.job_id)
+                self._reset_retry_info_for_job()
+        except Exception:
+            # Don't fail the prejob if reset failed; log and continue with existing state
+            self.logger.exception("Failed to reset retry_info; proceeding without reset.")
         ## Load the retry_info.
         retry_info_file_name = "retry_info/job.%s.txt" % (self.job_id)
         if os.path.exists(retry_info_file_name):
@@ -95,6 +156,16 @@ class PreJob:
         if retry_info['pre'] > retry_info['post']:
             ## If job_out exists, then the job was likely submitted and we should run the
             ## post-job.
+            # If we just reset retry_info due to a resubmit signal, ensure we don't prematurely exit
+            # the first run by treating existing job_out as a restart signal.
+            try:
+                if self._should_reset_retry_info():
+                    # After reset, this is a fresh attempt; neutralize the early-exit condition
+                    # by aligning 'pre' to 'post' so we proceed to submission.
+                    retry_info['pre'] = retry_info['post']
+                    retmsg += "\n\tDetected reset signal; aligning retry_info['pre'] to retry_info['post']."
+            except Exception:
+                pass
             if os.path.exists(job_out_file_name):
                 retmsg += "\n\tFile %s already exists." % (job_out_file_name)
                 retmsg += "\n\tIt seems the job has already been submitted."
@@ -522,6 +593,12 @@ class PreJob:
         ## Load the task ad.
         self.get_task_ad()
 
+        # If reset signal is present but we couldn't check earlier (no task_ad then), ensure reset here too.
+        try:
+            if self._should_reset_retry_info():
+                self._reset_retry_info_for_job()
+        except Exception:  # never fail prejob due to reset trouble
+            self.logger.exception("Late retry_info reset attempt failed; continuing.")
         try:
             with open('webdir', 'r', encoding='utf-8') as fd:
                 self.userWebDirPrx = fd.read()

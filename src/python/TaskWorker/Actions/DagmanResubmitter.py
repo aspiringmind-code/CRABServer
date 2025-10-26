@@ -1,7 +1,6 @@
 """ Resubmit failed jobs in tasks """
 
 import os
-import json
 
 from http.client import HTTPException
 from urllib.parse import urlencode
@@ -25,61 +24,7 @@ class DagmanResubmitter(TaskAction):
     Internally, we simply release the failed DAG.
     """
 
-    def _reset_retry_and_defer_info(self, schedd, workflow, logger):
-        """
-        Reset retry_info and defer_info for a task prior to resubmission.
-        We locate the BASE DAG job, fetch its Iwd, then:
-          - set every retry_info/job.*.txt to {"pre":0,"post":0}
-          - remove defer_info/defer_num.*.txt files
-        Abort resubmission if we cannot perform a full reset.
-        """
-        # Query BASE DAG for this workflow to get Iwd
-        projection = ["ClusterId", "Iwd"]
-        rootConst = f'(CRAB_DAGType =?= "BASE" && CRAB_ReqName =?= {classad.quote(workflow)})'
-        results = list(schedd.query(rootConst, projection))
-        if not results:
-            raise TaskWorkerException(f"Unable to find BASE DAG for {workflow}; cannot reset retry/defer info.")
-        iwd = results[0].get("Iwd")
-        if not iwd or not os.path.isdir(iwd):
-            raise TaskWorkerException(f"Working directory (Iwd) not accessible: {iwd}. Aborting resubmission.")
-        retry_dir = os.path.join(iwd, "retry_info")
-        defer_dir = os.path.join(iwd, "defer_info")
-
-        # Reset retry_info
-        if not os.path.isdir(retry_dir):
-            # If there's no retry_info directory, treat as failure per requirement (abort).
-            raise TaskWorkerException(f"Directory not found: {retry_dir}. Aborting resubmission.")
-        errors = []
-        reset_count = 0
-        for fname in os.listdir(retry_dir):
-            if not fname.startswith("job.") or not fname.endswith(".txt"):
-                continue
-            fpath = os.path.join(retry_dir, fname)
-            try:
-                tmp = fpath + ".tmp"
-                with open(tmp, "w", encoding="utf-8") as fd:
-                    json.dump({"pre": 0, "post": 0}, fd)
-                os.replace(tmp, fpath)
-                reset_count += 1
-            except Exception as ex:
-                errors.append(f"Failed to reset {fpath}: {ex}")
-        if errors:
-            for e in errors:
-                logger.error(e)
-            raise TaskWorkerException("Errors while resetting retry_info. Aborting resubmission.")
-        logger.info("Reset %d retry_info files in %s", reset_count, retry_dir)
-
-        # Clean defer_info (best-effort, but abort if directory exists and we fail to clean)
-        if os.path.isdir(defer_dir):
-            try:
-                removed = 0
-                for fname in os.listdir(defer_dir):
-                    if fname.startswith("defer_num.") and fname.endswith(".txt"):
-                        os.remove(os.path.join(defer_dir, fname))
-                        removed += 1
-                logger.info("Removed %d defer_info files in %s", removed, defer_dir)
-            except Exception as ex:
-                raise TaskWorkerException(f"Failed cleaning defer_info in {defer_dir}: {ex}") from ex
+    # Note: retry/defer reset is now signaled via ClassAds and performed by PreJob on the schedd.
 
     def executeInternal(self, *args, **kwargs): #pylint: disable=unused-argument
         """ real work happens here """
@@ -137,13 +82,16 @@ class DagmanResubmitter(TaskAction):
         if ('resubmit_jobids' in task) and task['resubmit_jobids']:
             self.logger.debug("Resubmitting when JOBIDs were specified")
             try:
-                # Before changing any ads or (Hold/Release), reset retry_info and defer_info.
-                # Abort resubmission if reset cannot be performed.
+                # Signal PreJob to reset retry_info locally on schedd for targeted jobs.
+                # PreJob will honor CRAB_ResetRetryInfo and CRAB_ResubmitList.
+                schedd.edit(rootConst, "CRAB_ResetRetryInfo", "True")
+                # Also pass the explicit resubmit list to PreJob
+                # Ensure it's a proper ClassAd list expression
                 try:
-                    self._reset_retry_and_defer_info(schedd, workflow, self.logger)
-                except TaskWorkerException:
-                    # bubble up after logging below
-                    raise
+                    resubmit_list_expr = pythonListToClassAdExprTree([str(j) for j in task['resubmit_jobids']])
+                    schedd.edit(rootConst, "CRAB_ResubmitList", resubmit_list_expr)
+                except Exception as ex:
+                    raise TaskWorkerException(f"Failed to set CRAB_ResubmitList: {ex}") from ex
                 schedd.edit(rootConst, "HoldKillSig", 'SIGKILL')
                 # Overwrite parameters in the os.environ[_CONDOR_JOB_AD] file. This will affect
                 # all the jobs, not only the ones we want to resubmit. That's why the pre-job
@@ -165,7 +113,7 @@ class DagmanResubmitter(TaskAction):
                 schedd.edit(rootConst, "HoldKillSig", 'SIGUSR1')
                 schedd.act(htcondor.JobAction.Release, rootConst)
             except Exception as hte:
-                # If the reset failed or any subsequent action failed, abort resubmission with clear message.
+                # If any action failed, abort resubmission with clear message.
                 if isinstance(hte, TaskWorkerException):
                     # Already a meaningful message; re-raise.
                     raise
