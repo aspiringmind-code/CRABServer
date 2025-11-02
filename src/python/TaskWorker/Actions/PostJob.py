@@ -185,7 +185,7 @@ def compute_outputdataset_name(primaryDS=None, username=None, publish_name=None,
 
 # ==============================================================================
 
-def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
+def prepareErrorSummary(logger, fsummary, job_id, crab_retry):
     """Parse the job_fjr file corresponding to the current PostJob. If an error
        message is found, it is inserted into the error_summary.json file
     """
@@ -193,11 +193,11 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
     # The job_id and crab_retry variables in PostJob are integers, while here we
     # mostly use them as strings.
     job_id = str(job_id)
-    next_idx_job_fjr = str(next_idx_job_fjr)
+    crab_retry = str(crab_retry)
 
     error_summary = []
     error_summary_changed = False
-    fjr_file_name = "job_fjr." + job_id + "." + next_idx_job_fjr + ".json"
+    fjr_file_name = "job_fjr." + job_id + "." + crab_retry + ".json"
 
     with open(fjr_file_name) as frep:
         try:
@@ -222,7 +222,7 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
                 if len(rep['steps']['cmsRun']['errors']) != 1:
                     #this should never happen because the report has just one step, but just in case print a message
                     logger.info("More than one error found in report['steps']['cmsRun']['errors']. Just considering the first one.")
-                msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, next_idx_job_fjr)
+                msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, crab_retry)
                 msg += "\n'exit code' = %s" % (exit_code)
                 msg += "\n'exit message' = %s" % (exit_msg)
                 msg += "\n'error message' = %s" % (rep['steps']['cmsRun']['errors'][0])
@@ -237,7 +237,7 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
                 # added later to the job report, the job exit code takes precedence, so we can
                 # already write it to the error summary.
                 if exit_code != 0:
-                    msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, next_idx_job_fjr)
+                    msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, crab_retry)
                     msg += "\n'exit code' = %s" % (exit_code)
                     msg += "\n'exit message' = %s" % (exit_msg)
                     logger.info(msg)
@@ -254,13 +254,13 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
                         # Use exit code 90000 as a general exit code for failures in the post-processing step.
                         # The 'crab status' error summary should not show this error code,
                         # but replace it with the generic message "failed in post-processing".
-                        msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, next_idx_job_fjr)
+                        msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, crab_retry)
                         msg += "\n'exit code' = 90000 ('Post-processing failed')"
                         msg += "\n'exit message' = %s" % (postjob_exit_msg)
                         logger.info(msg)
                         error_summary = [90000, postjob_exit_msg, {}]
                     else:
-                        msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, next_idx_job_fjr)
+                        msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, crab_retry)
                         msg += "\n'exit code' = %s" % (exit_code)
                         msg += "\n'exit message' = %s" % (exit_msg)
                         logger.info(msg)
@@ -274,7 +274,7 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
                 exit_msg = 'Invalid framework job report. The framework job report exists, but it cannot be loaded.'
             else:
                 exit_msg = rep['exitMsg'] if 'exitMsg' in rep else 'The framework job report could be loaded, but no error message was found there.'
-            msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, next_idx_job_fjr)
+            msg = "Updating error summary for jobid %s retry %s with following information:" % (job_id, crab_retry)
             msg += "\n'exit code' = %s" % (exit_code)
             msg += "\n'exit message' = %s" % (exit_msg)
             logger.info(msg)
@@ -286,7 +286,7 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
         with getLock(G_FJR_PARSE_RESULTS_FILE_NAME):
             with open(G_FJR_PARSE_RESULTS_FILE_NAME, "a+") as fjr_parse_results:
                 # make sure the "json file" is written as multiple lines
-                fjr_parse_results.write(json.dumps({job_id : {next_idx_job_fjr : error_summary}}) + "\n")
+                fjr_parse_results.write(json.dumps({job_id : {crab_retry : error_summary}}) + "\n")
 
     # Read, update and re-write the error_summary.json file
     try:
@@ -299,7 +299,7 @@ def prepareErrorSummary(logger, fsummary, job_id, next_idx_job_fjr):
         # Just recreate it.
         logger.info("File %s is empty, wrong or does not exist. Will create a new file." % (G_ERROR_SUMMARY_FILE_NAME))
     error_summary_new_content = error_summary_old_content
-    error_summary_new_content[job_id] = {next_idx_job_fjr : error_summary}
+    error_summary_new_content[job_id] = {crab_retry : error_summary}
 
     # If we have updated the error summary, write it to the json file.
     # Use a temporary file and rename to avoid concurrent writing of the file.
@@ -1626,7 +1626,7 @@ class PostJob():
         if self.crab_retry is None:
             self.postjob_log_file_name = "postjob.%s.error.txt" % (self.job_id)
         else:
-            self.postjob_log_file_name = "postjob.%s.%d.txt" % (self.job_id, self.next_idx_post)
+            self.postjob_log_file_name = "postjob.%s.%d.txt" % (self.job_id, self.crab_retry)
 
         #it needs an existing webdir and the postjob_log_file_name
         self.handle_logfile()
@@ -1721,7 +1721,7 @@ class PostJob():
             with getLock(G_ERROR_SUMMARY_FILE_NAME):
                 self.logger.debug("Acquired lock on error summary file.")
                 with open(G_ERROR_SUMMARY_FILE_NAME, "a+") as fsummary:
-                    prepareErrorSummary(self.logger, fsummary, self.job_id, self.next_idx_job_fjr)
+                    prepareErrorSummary(self.logger, fsummary, self.job_id, self.crab_retry)
         except Exception:
             msg = "Unknown error while preparing the error report."
             self.logger.exception(msg)
@@ -3005,34 +3005,6 @@ class PostJob():
         else:
             crab_retry = retry_info['post'] - 1
         return 0, crab_retry
-
-    def next_idx_post(self):
-        try:
-            files = glob.glob(f"postjob.{self.job_id}.*.txt")
-            max_idx = -1
-            for f in files:
-                try:
-                    idx = int(os.path.basename(f).split('.')[-2])
-                    max_idx = max(max_idx, idx)
-                except Exception:
-                    continue
-            return max_idx + 1
-        except Exception:
-            return 0
-
-    def next_idx_job_fjr(self):
-        try:
-            files = glob.glob(f"job_fjr.{self.job_id}.*.json")
-            max_idx = -1
-            for f in files:
-                try:
-                    idx = int(os.path.basename(f).split('.')[-2])
-                    max_idx = max(max_idx, idx)
-                except Exception:
-                    continue
-            return max_idx + 1
-        except Exception:
-            return 0
 
     # = = = = = PostJob = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
