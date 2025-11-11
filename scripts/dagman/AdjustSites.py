@@ -114,7 +114,7 @@ def adjustMaxRetries(adjustJobIds, ad):
     """
     Rescue-mode version:
     Simply increments RETRY counts in RunJobs.dag.rescue0* files by:
-        increment = 1 + CRAB_NumAutomJobRetries
+        increment = CRAB_NumAutomJobRetries
 
     adjustJobIds:
         - True: adjust all RETRY lines
@@ -127,7 +127,7 @@ def adjustMaxRetries(adjustJobIds, ad):
         return
 
     # Fixed increment logic — same meaning as original code
-    increment = 1 + int(ad.get('CRAB_NumAutomJobRetries', 2))
+    increment = int(ad.get('CRAB_NumAutomJobRetries', 2))
     printLog(f"increment is {increment}")
     # Use your automatic glob logic
     rescue_files = getRescueFiles(ad)
