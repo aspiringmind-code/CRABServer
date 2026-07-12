@@ -518,7 +518,7 @@ class PreJob:
             self.logger.exception(msg)
         return None
 
-    def needsDefer(self):
+    def needsDefer(self, crab_retry):
         """ Check if the Prejob needs to be deferred, feature useful for some use cases that requires
             slow release of jobs in a task.
             The function return True if CRAB_JobReleaseTimeout is defined and not 0, and if the submit
@@ -526,29 +526,18 @@ class PreJob:
             Additionally retry policy delay
         """
         deferTime = int(self.task_ad.get("CRAB_JobReleaseTimeout", 0))
-
         currentTime = time.time()
+        inkey = str(crab_retry) if crab_retry == 0 else str(crab_retry - 1)
+        while inkey not in self.resubmit_info and int(inkey) > 0:
+            inkey = str(int(inkey) - 1)
+        retry_delay_until = self.resubmit_info.get(inkey, {}).get("retry_delay_until")
+        if retry_delay_until and currentTime < retry_delay_until:
+            wait = int(retry_delay_until - currentTime)
+            self.logger.info(f"Retry delay not elapsed yet. Deferring for {wait} seconds.")
+            return True
+        else:
+            self.logger.info("Retry delay not found")
 
-        # Check retry delay from resubmit_info
-        # Inside SPOOL_DIR we have resubmit_info folder with text files job.{self.job_id}.txt for each job id
-        # Each file is a dictionary of the format example {0:{'maxmemory':2000, ...}, 1:{}, 2:{}, ...}
-        # where 0,1,2,... are crab_retry numbers. A lot of vital info like site_whitelist, retry_delay_until,
-        # use_resubmit_info, etc is stored and read from this file for each retry across resubmissions.
-        # ToDo: Convert this file to json format
-        retry_info_file = f"resubmit_info/job.{self.job_id}.txt"
-        if os.path.exists(retry_info_file):
-            try:
-                with open(retry_info_file, "r", encoding="utf-8") as fd:
-                    retry_info = literal_eval(fd.read())
-                key = str(self.dag_retry)
-                if key in retry_info:
-                    retry_delay_until = retry_info[key].get("retry_delay_until")
-                    if retry_delay_until and currentTime < retry_delay_until:
-                        wait = int(retry_delay_until - currentTime)
-                        self.logger.info(f"Retry delay not elapsed yet. Deferring for {wait} seconds.")
-                        return True
-            except Exception:
-                self.logger.exception("Error checking retry delay in resubmit_info")
         if deferTime:
             self.logger.info('Release timeout specified in extraJDL:')
             totalDefer = deferTime * int(self.job_id)
@@ -638,7 +627,7 @@ class PreJob:
         if old_time:
             sleep_time = int(max(1, sleep_time - old_time))
         self.update_dashboard(crab_retry)
-        if self.needsDefer():
+        if self.needsDefer(crab_retry):
             return 4
         msg = "Finished pre-job execution. Sleeping %s seconds..." % (sleep_time)
         self.logger.info(msg)
