@@ -527,16 +527,16 @@ class PreJob:
         """
         deferTime = int(self.task_ad.get("CRAB_JobReleaseTimeout", 0))
         currentTime = time.time()
-        inkey = str(crab_retry) if crab_retry == 0 else str(crab_retry - 1)
-        while inkey not in self.resubmit_info and int(inkey) > 0:
-            inkey = str(int(inkey) - 1)
-        retry_delay_until = self.resubmit_info.get(inkey, {}).get("retry_delay_until")
+        key = str(crab_retry) if crab_retry == 0 else str(crab_retry - 1)
+        while key not in self.resubmit_info and int(key) > 0:
+            key = str(int(key) - 1)
+        retry_delay_until = self.resubmit_info.get(key, {}).get("retry_delay_until")
         if retry_delay_until and currentTime < retry_delay_until:
             wait = int(retry_delay_until - currentTime)
-            self.logger.info(f"Retry delay not elapsed yet. Deferring for {wait} seconds.")
+            self.logger.info(f"Retry delay not elapsed yet. Deferring for {wait} seconds. retry_delay_until is {retry_delay_until} and currentTime is {currentTime}")
             return True
         else:
-            self.logger.info("Retry delay not found")
+            self.logger.info(f"Retry delay not found. retry_delay_until is {retry_delay_until} and currentTime is {currentTime}")
 
         if deferTime:
             self.logger.info('Release timeout specified in extraJDL:')
